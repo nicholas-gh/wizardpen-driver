@@ -1,0 +1,33 @@
+"Calibrate" tool for the WizardPen tablet driver for XOrg/XFree86
+=================================================================
+
+Installation
+------------
+
+See the INSTALL file for detailed installation instructions.
+
+
+Compatibility
+-------------
+
+This tool should work with all Genius WizardPen and MousePen series
+tablets. Other Genius USB tablets may be working too, please report any
+experience with it, if you have one.
+
+Usage
+-----
+
+Execute and follow on-screen instructions:
+
+wizardpen-calibrate <wizardpen event device>
+
+Where, "wizardpen event device" is one of /dev/input/eventX which
+corresponds to your tablet, or a symlink created by udev rule (if you have
+written one).
+
+Author and contacts
+-------------------
+
+Nickolay Kondrashov <knu@avtomatikarus.com>
+
+

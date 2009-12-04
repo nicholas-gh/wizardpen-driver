@@ -1,0 +1,134 @@
+Installation of the WizardPen Tablet Driver for XOrg/XFree 4.x
+==============================================================
+
+Authors: Jan Horak <xhorak28@stud.fit.vutbr.cz>,
+         Nickolay Kondrashov <knu@avtomatikarus.com>
+
+Parts of this file are taken from INSTALL file by Stefan Gmeiner from
+the synaptics touchpad driver for XOrg/XFree 4.x.
+
+Requirements
+------------
+
+1. You need X include files. On RPM based systems, they are usually
+   included in the XFree86-devel/xorg-x11-devel package. On Debian
+   systems, you need to install the packages x-dev, libx11-dev and
+   libxext-dev.
+
+2. You need xmkmf utility. On RPM based systems, it is usually included
+   in the XFree86-devel/xorg-x11-devel or imake package. On Debian
+   systems it is included in the xutils package.
+
+3. For USB tablets you also need 2.6 kernel with support for the evdev
+   interface (CONFIG_INPUT_EVDEV). If you compile evdev as a module,
+   make sure it is loaded before starting the X server, as it will not be
+   auto-loaded. There is evdev support in the 2.4 kernel, but for the
+   time being it is not supported by the driver.
+
+4. You will need udev for USB tablets, most probably. See README for
+   details.
+
+
+Installing
+----------
+
+1. Type "xmkmf" to make the driver Makefile.
+
+2. Type "make" to build the driver module "wizardpen_drv.o".
+
+3. Copy the driver module "wizardpen_drv.o" into the XFree module
+   path. This path is usually "/usr/X11R6/lib/modules/input/", and
+   running "make install" as root will do this for you. Note though
+   that some distributions have a different module path. For example,
+   in Gentoo 1.4 (with XFree86 4.3.0), the correct path is
+   "/usr/X11R6/lib/modules/drivers".
+
+4. Add the InputDevice section for the tablet to your /etc/X11/XF86Config
+   or /etc/X11/xorg.conf:
+
+   Section "InputDevice"
+   	Identifier  	"WizardPen Tablet"
+   	Driver  	"wizardpen"
+	...		# see README for complete option set
+			# description
+   EndSection
+
+5. Setup and option set for serial and USB tablets are different:
+
+5.1. For serial tablet set device to /dev/ttyS* to which your tablet is
+     connected. For example, for /dev/ttyS0, "Device" option should be set
+     like this:
+
+     Section "InputDevice"
+	...
+   	Option		"Device"	"/dev/ttyS0"
+	...
+     EndSection
+
+5.2. For USB tablet, first setup an udev rule(s) (see README for details),
+     then set "Device" option to the symlink created by udev. Example for
+     symlink being /dev/tablet-event:
+
+     Section "InputDevice"
+	...
+   	Option	"Device"	"/dev/tablet-event"
+	...
+     EndSection
+ 
+     Though, you could specify device as /dev/input/event0 if you use your
+     tablet as the only input device, making udev rule is recommended still.
+
+     You will need to specify your tablet working area, as the hardware
+     sometimes reports tablet size incorrectly (too small), and device
+     database is not implemented currently. It is planned for next release,
+     though. Typically, it will look like this (this one is for
+     MousePen 8x6):
+
+   	...
+        Option	"TopX"		"0"
+        Option	"TopY"		"2517"
+        Option	"BottomX"	"31859"
+        Option	"BottomY"	"32762"
+        Option	"MaxX"		"31859"
+        Option	"MaxY"		"32762"
+	...
+
+     See README for details on these options.
+
+6. Add the "CorePointer" option to the tablet InputDevice line at the
+   ServerLayout section:
+
+   Section "ServerLayout"
+	...
+	InputDevice	"WizardPen Tablet"	"CorePointer"
+	...
+
+   Note! You cannot have more than one core pointer, so if you want
+   to use an external mouse too, you have to set all mouse input
+   devices except one to "AlwaysCore" instead of "CorePointer". For
+   example:
+
+   Section "InputDevice"
+	Identifier	"PS/2 Mouse"
+	Option		"Device"	"/dev/ps-mouse"
+   ...
+
+   Section "InputDevice"
+   	Identifier	"WizardPen Tablet"
+   	Driver		"wizardpen"
+   ...
+
+   Section "ServerLayout"
+	...
+  	InputDevice	"PS/2 Mouse"		"CorePointer"
+	InputDevice	"WizardPen Tablet"	"AlwaysCore"
+   ...
+
+7. Start/Restart the X server. If the tablet doesn't work:
+   a) Check the X server log file. This file is usually called
+      /var/log/XFree86.0.log or /var/log/Xorg.0.log.
+   b) Try to start the X server with 'startx -- -logverbose 8' for
+      more output.
+   c) See README's troubleshooting section.
+
+

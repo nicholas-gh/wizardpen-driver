@@ -1,0 +1,4 @@
+Cursor moves too fast in SDL games
+Acceleration is not working
+X server (at least 4.3.0.dfsg.1-14) crashes when stopping and using tablet simultaneously
+There are reports of X server hanging upon restarting
