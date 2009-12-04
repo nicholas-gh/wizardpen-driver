@@ -1,1 +1,0 @@
-../../../programs/Xserver/hw/xfree86/xf86Version.h

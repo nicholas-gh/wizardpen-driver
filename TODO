@@ -1,8 +1,0 @@
-Add option to control relative (mouse) motion factor (now hardcoded to 24)
-Make button remapping work (broken now?)
-Incorporate wizardpen-calibrate tool?
-Decide on debugging levels and further streamline debugging messages - low priority
-Make "serial part" more aware of "USB part", and use common Register* functions
-Make buttons drawn on the tablet work
-Device parameter database for storing MaxX/MaxY and also "button" coordinates.
-Write decent "Troubleshooting" section in the README, see the synaptics' one.

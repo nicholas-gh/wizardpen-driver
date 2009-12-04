@@ -1,0 +1,96 @@
+.\" shorthand for double quote that works everywhere.
+.ds q \N'34'
+.TH WizardPen 4 "wizardpen 1.0.0" "X Version 11"
+.SH NAME
+wizarpen \- WizardPen tablet input driver
+.SH SYNOPSIS
+.B "Section \*qInputDevice\*q"
+.br
+.BI "  Identifier \*q" Tablet \*q
+.br
+.B  "  Driver \*qwizardpen\*q"
+.br
+.BI "  Option \*qDevice\*q   \*q" devpath \*q
+.br
+\ \ ...
+.br
+.B EndSection
+.br
+\ \ ...
+.br
+.B "Section" \*qServerLayout\*q
+.br
+\ \ ...
+.br
+.BI "  InputDevice"	\*qTablet\*q
+.br
+\ \ ...
+.br
+.B EndSection
+.SH DESCRIPTION
+.B wizardpen 
+is an Xorg input driver for WizardPen Tablet devices...
+.PP
+The
+.B wizardpen
+driver functions as a pointer input device, and may be used as the
+X server's core pointer.
+THIS MAN PAGE NEEDS TO BE FILLED IN.
+.SH SUPPORTED HARDWARE
+What is supported...
+.br
+WizardPen tablets
+.SH CONFIGURATION DETAILS
+Please refer to xorg.conf(5) for general configuration
+details and for options that can be used with all input drivers.  This
+section only covers configuration details specific to this driver.
+.PP
+.BI	"Option \*qTopX\*q	\*q"val\*q
+.br
+Allows the use of an alternative left edge location.
+.PP
+.B val
+should be equal to the x value of the new left edge
+.PP
+.BI	"Option \*qTopY\*q	\*q"val\*q
+.br
+Allows the use of an alternative top edge location.
+.PP
+.B val
+should be equal to the y value of the new top edge
+.PP
+.BI	"Option \*qTopZ\*q	\*q"val\*q
+.br
+Allows the use of an alternative minimum pressure.
+.PP
+.B val
+should be equal to the value of the new minimum pressure
+.PP
+.BI	"Option \*qBottomX\*q	\*q"val\*q
+.br
+Allows the use of an alternative right edge location.
+.PP
+.B val
+should be equal to the x value of the new right edge
+.PP
+.BI	"Option \*qBottomY\*q	\*q"val\*q
+.br
+Allows the use of an alternative bottom edge location.
+.PP
+.B val
+should be equal to the y value of the new bottom edge
+.PP
+.BI	"Option \*qBottomZ\*q	\*q"val\*q
+.br
+Allows the use of an alternative maximum pressure.
+.PP
+.B val
+should be equal to the value of the new maximum pressure
+.PP
+
+.SH "SEE ALSO"
+Xorg(1), xorg.conf(5), xorgconfig(1), Xserver(1), X(7).
+.SH AUTHORS
+Authors include...
+Edouard TISSERANT
+Zachary Cornelius
