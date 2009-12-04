@@ -83,6 +83,13 @@
  *	Local Variables
  ****************************************************************************/
 
+float rz;
+int oldz = 0;
+int debugyn = 0;
+int rotate90 = 0;
+int screenmaxx, screenmaxy;
+int mousespeed = 30;
+int mouseaccel = 1;
 #undef read
 #define read(a,b,c) xf86ReadSerial((a),(b),(c))
 
@@ -209,7 +216,7 @@ static char wizardpen_name_default[10] = "  TABL";
 
 #ifdef LINUX_SYSFS
 static char usb_bus_name[4] = "usb";
-static char wizardpen_driver_name[11] = "evdev";
+static char acecad_driver_name[11] = "usb_wizardpen";
 #endif
 
 static Bool
@@ -219,7 +226,7 @@ WizardPenAutoDevProbe(LocalDevicePtr local, int verb)
     int i = 0;
     Bool have_evdev = FALSE;
     int noent_cnt = 0;
-    const int max_skip = 4;
+    const int max_skip = 10;
     char *wizardpen_name = xf86FindOptionValue(local->options, "Name");
     char fname[EV_DEV_NAME_MAXLEN];
     int np;
@@ -233,60 +240,13 @@ WizardPenAutoDevProbe(LocalDevicePtr local, int verb)
     struct dlist *links = NULL;
     unsigned int major = 0, minor = 0;
     void *libsysfs = NULL;
-
-    if (libsysfs = dlopen("libsysfs.so", RTLD_NOW | RTLD_GLOBAL)) {
-        xf86MsgVerb(X_INFO, verb, "%s: querying sysfs for wizardpen tablets\n", local->name);
-        usb_bus = sysfs_open_bus(usb_bus_name);
-        if (usb_bus) {
-            xf86MsgVerb(X_PROBED, 4, "%s: usb bus opened\n", local->name);
-            wizardpen_driver = sysfs_get_bus_driver(usb_bus, wizardpen_driver_name);
-            if (wizardpen_driver) {
-                xf86MsgVerb(X_PROBED, 4, "%s: usb_wizardpen driver opened\n", local->name);
-                devs = sysfs_get_driver_devices(wizardpen_driver);
-                if (devs) {
-                    xf86MsgVerb(X_PROBED, 4, "%s: usb_wizardpen devices retrieved\n", local->name);
-                    dlist_for_each_data(devs, candidate, struct sysfs_device) {
-                        xf86MsgVerb(X_PROBED, 4, "%s: device %s at %s\n", local->name, candidate->name, candidate->path);
-                        links = sysfs_open_link_list(candidate->path);
-                        dlist_for_each_data(links, link, char) {
-                            if (sscanf(link, "input:event%d", &i) == 1) {
-                                xf86MsgVerb(X_PROBED, 4, "%s: device %s at %s: %s\n", local->name, candidate->name, candidate->path, link);
-                                break;
-                            }
-                        }
-                        sysfs_close_list(links);
-                        if (i > 0) // We found something 
-                            break;
-                    }
-                } else
-                    xf86MsgVerb(X_WARNING, 4, "%s: no wizardpen devices found\n", local->name);
-            } else
-                xf86MsgVerb(X_WARNING, 4, "%s: evdev driver not found\n", local->name);
-        } else
-            xf86MsgVerb(X_WARNING, 4, "%s: usb bus not found\n", local->name);
-        sysfs_close_bus(usb_bus);
-        dlclose(libsysfs);
-
-        if (i > 0) {
-            // We found something 
-            np = SET_EVENT_NUM(fname, i);
-            if (np < 0 || np >= EV_DEV_NAME_MAXLEN) {
-                xf86MsgVerb(X_WARNING, verb, "%s: unable to manage event device %d\n", local->name, i);
-            } else {
-                goto ProbeFound;
-            }
-        } else
-            xf86MsgVerb(X_WARNING, verb, "%s: no Wizardpen devices found via sysfs\n", local->name);
-    } else
-        xf86MsgVerb(X_WARNING, 4, "%s: libsysfs not found\n", local->name);
-
 #endif
 
     if (!wizardpen_name)
         wizardpen_name = wizardpen_name_default;
 
     xf86MsgVerb(X_INFO, verb, "%s: probing event devices for WizardPen tablets\n", local->name);
-    for (i = 0; i<50; i++) {
+    for (i = 0; ; i++) {
         int fd = -1;
 	      Bool is_wizardpen;
 
@@ -306,6 +266,7 @@ WizardPenAutoDevProbe(LocalDevicePtr local, int verb)
                 continue;
             }
         }
+        noent_cnt = 0;
         have_evdev = TRUE;
         is_wizardpen = fd_query_wizardpen(fd, wizardpen_name);
         SYSCALL(close(fd));
@@ -411,6 +372,55 @@ WizardPenPreInit(InputDriverPtr drv, IDevPtr dev, int flags)
 	priv->bottomZ = atoi(s);
 	xf86Msg(X_CONFIG, "%s: BottomZ = %d\n", local->name, priv->bottomZ);
     }
+
+    s = xf86FindOptionValue(local->options, "ScreenX");
+    if (s && strlen(s) > 0) {
+	screenmaxx = atoi(s);
+	xf86Msg(X_CONFIG, "%s: ScreenX = %d\n", local->name, screenmaxx);
+    }else
+	screenmaxx = screenInfo.screens[0]->width;
+    
+    s = xf86FindOptionValue(local->options, "ScreenY");
+    if (s && strlen(s) > 0) {
+	screenmaxy = atoi(s);
+	xf86Msg(X_CONFIG, "%s: ScreenY = %d\n", local->name, screenmaxy);
+    }else
+	screenmaxy = screenInfo.screens[0]->height;
+
+    s = xf86FindOptionValue(local->options, "debugyn");
+    if (s && strlen(s) > 0) {
+	debugyn = atoi(s);
+	xf86Msg(X_CONFIG, "%s: debugyn = %d\n", local->name, debugyn);
+    }
+
+    s = xf86FindOptionValue(local->options, "MouseSpeed");
+    if (s && strlen(s) > 0) {
+	mousespeed = atoi(s);
+	xf86Msg(X_CONFIG, "%s: MouseSpeed = %d\n", local->name, mousespeed);
+    }
+    
+    s = xf86FindOptionValue(local->options, "MouseAccel");
+    if (s && strlen(s) > 0) {
+	mouseaccel = atoi(s);
+	xf86Msg(X_CONFIG, "%s: MouseAccel = %d\n", local->name, mouseaccel);
+    }
+
+    s = xf86FindOptionValue(local->options, "Rotate90");
+    if (s && strlen(s) > 0) {
+	int rotate;
+	rotate90 = atoi(s);
+	xf86Msg(X_CONFIG, "%s: Rotate90 = %d\n", local->name, rotate90);
+	if(rotate90){
+		int temp;
+		temp = priv->bottomY;
+		priv->bottomY = priv->bottomX;
+		priv->bottomX = temp;
+		temp = priv->topY;
+		priv->topY = priv->topX;
+		priv->topX = temp;
+	}
+    }
+    
     /* end of box settings */
 
     // increment setting
@@ -528,7 +538,6 @@ DeviceOn (DeviceIntPtr dev)
     char buffer[256];
     LocalDevicePtr local = (LocalDevicePtr) dev->public.devicePrivate;
     WizardPenPrivatePtr priv = (WizardPenPrivatePtr) (local->private);
-	int err =0;
 
     xf86MsgVerb(X_INFO, 4, "%s Device On\n", local->name);
 
@@ -549,16 +558,6 @@ DeviceOn (DeviceIntPtr dev)
 
     if (!(priv->flags & USB_FLAG)) {
         priv->buffer = XisbNew(local->fd, 200);
-#ifdef EVIOCGRAB
-	/* Try to grab the event device so that data don't leak to /dev/input/mice */
-	SYSCALL(err = ioctl(local->fd, EVIOCGRAB, (pointer)1));
-
-	if (err < 0) 
-		ErrorF("%s WizardPen driver can't grab event device, errno=%d\n",
-				local->name, errno);
-	else 
-		ErrorF("%s WizardPen driver grabbed event device\n", local->name);
-#endif
         if (!priv->buffer)
         {
             xf86CloseSerial(local->fd);
@@ -630,11 +629,11 @@ DeviceInit (DeviceIntPtr dev)
 	priv->wizardpenOldY = 0;
 	priv->wizardpenOldZ = 0;
 	unsigned char map[] =
-    {0, 1, 2, 3};
+    {0, 1, 2, 3, 4, 5};
     xf86MsgVerb(X_INFO, 4, "%s Init\n", local->name);
 
-    /* 3 buttons */
-    if (InitButtonClassDeviceStruct (dev, 3, map) == FALSE)
+    /* 3 buttons changed to SIX */
+    if (InitButtonClassDeviceStruct (dev, 6, map) == FALSE)
     {
         xf86Msg(X_ERROR, "%s: unable to allocate ButtonClassDeviceStruct\n", local->name);
         return !Success;
@@ -653,38 +652,52 @@ DeviceInit (DeviceIntPtr dev)
 
 
     /* 3 axes */
-    if (InitValuatorClassDeviceStruct (dev, 3, xf86GetMotionEvents,
+    if (InitValuatorClassDeviceStruct (
+                dev,
+                3,
+#if GET_ABI_MAJOR(ABI_XINPUT_VERSION) < 3
+                xf86GetMotionEvents,
+#endif
                 local->history_size,
-                ((priv->flags & ABSOLUTE_FLAG)? Absolute: Relative)|OutOfProximity)
-            == FALSE)
+                ((priv->flags & ABSOLUTE_FLAG)? Absolute: Relative)|OutOfProximity) == FALSE)
     {
         xf86Msg(X_ERROR, "%s: unable to allocate ValuatorClassDeviceStruct\n", local->name);
         return !Success;
     }
     else
     {
-
+	
         InitValuatorAxisStruct(dev,
                 0,
                 0,			/* min val */
-                screenInfo.screens[0]->width,	/* max val */
+                /*screenInfo.screens[0]->width,*/	/* max val */
+                screenmaxx,			/* max val */
                 1000,			/* resolution */
                 0,			/* min_res */
                 1000);			/* max_res */
         InitValuatorAxisStruct(dev,
                 1,
                 0,			/* min val */
-                screenInfo.screens[0]->height,	/* max val */
+                /*screenInfo.screens[0]->height,*/	/* max val */
+                screenmaxy,	/* max val */
                 1000,			/* resolution */
                 0,			/* min_res */
                 1000);			/* max_res */
         InitValuatorAxisStruct(dev,
                 2,
                 0,			/* min val */
-                priv->bottomZ,	/* max val */
+                /*priv->bottomZ,*/	/* max val */
+		1023,
                 1000,			/* resolution */
                 0,			/* min_res */
                 1000);		/* max_res */
+	
+	if(rotate90){
+		int tempval;
+		tempval = screenmaxx;
+		screenmaxx = screenmaxy;
+		screenmaxy = tempval;
+	}
 
     }
 
@@ -705,8 +718,8 @@ DeviceInit (DeviceIntPtr dev)
     if (priv->wizardpenInc < 1)
     {
         /* guess the best increment value given video mode */
-        rx = priv->wizardpenMaxX / screenInfo.screens[0]->width;
-        ry = priv->wizardpenMaxY / screenInfo.screens[0]->height;
+        rx = priv->wizardpenMaxX / screenmaxx; /* screenInfo.screens[0]->width;*/
+        ry = priv->wizardpenMaxY / screenmaxy; /*screenInfo.screens[0]->height;*/
         if (rx < ry)
             priv->wizardpenInc = rx;
         else
@@ -729,12 +742,14 @@ USBReadInput (LocalDevicePtr local)
     struct input_event * event;
     char eventbuf[sizeof(struct input_event) * MAX_EVENTS];
     WizardPenPrivatePtr priv = (WizardPenPrivatePtr) (local->private);
+    int delta;
+    int id;
     int x = priv->wizardpenOldX;
     int y = priv->wizardpenOldY;
     int z = priv->wizardpenOldZ;
-	int report_x,report_y;
-	int prox = priv->wizardpenOldProximity;
-    int buttons = priv->wizardpenOldButtons & 7;
+    int report_x,report_y, report_z;  /* mpa new report_z var */
+    int prox = priv->wizardpenOldProximity;
+    int buttons = priv->wizardpenOldButtons;
     int is_core_pointer = 0;
     /* Is autodev active? */
     int autodev = priv->flags & AUTODEV_FLAG;
@@ -745,16 +760,15 @@ USBReadInput (LocalDevicePtr local)
 
     if (len <= 0) {
         if (avail) {
-			xf86Msg(X_ERROR, "%s: error reading device %s: %s\n", local->name, xf86FindOptionValue(local->options, "Device"), strerror(errno));
+            xf86Msg(X_ERROR, "%s: error reading device %s: %s\n", local->name, xf86FindOptionValue(local->options, "Device"), strerror(errno));
         }
         if (NOTAVAIL) {
             priv->flags &= ~AVAIL_FLAG;
             if(autodev) {
-                WizardPenAutoDevProbe(local, 4);{
+                if (WizardPenAutoDevProbe(local, 4)) {
                     DeviceOff(local->dev);
                     DeviceOn(local->dev);
-				}
-              
+                }
             }
         }
         return;
@@ -774,23 +788,142 @@ USBReadInput (LocalDevicePtr local)
                 if (event->code != SYN_REPORT && event->code != 0)
                     xf86Msg(X_ERROR, "%s: unknown EV_SYN code %d\n", local->name, event->code);
                 break;
+	    case EV_REL:
+		if(debugyn)
+                xf86Msg(X_ERROR, "EV_REL! %s: event type/code/value %d/%d/%d\n", local->name, event->type, event->code, event->value);
+	        int xaccel, yaccel;
+		
+		switch(event->code){
+			case REL_X:
+				xaccel = 1;
+				if(mouseaccel){
+				    if(abs(event->value) > 2){
+					xaccel = 2;
+				    }else if(abs(event->value) > 4){
+					xaccel = 3;
+				    }else if(abs(event->value) > 6){
+					xaccel = 4;
+				    }
+				}
+				x = x + (xaccel * mousespeed * event->value);
+				if(x < priv->topX){
+					x = 1 + priv->topX;
+				}
+				if( x > priv->bottomX){
+					x = priv->bottomX;
+				}
+			break;
+			case REL_Y:
+				yaccel = 1;
+				if(mouseaccel){
+				    if(abs(event->value) > 2){
+					yaccel = 2;
+				    }else if(abs(event->value) > 4){
+					yaccel = 3;
+				    }else if(abs(event->value) > 6){
+					yaccel = 4;
+				    }
+				}
+				y = y + (yaccel * mousespeed * event->value);
+				if(y < priv->topY){
+					y = 1 + priv->topY;
+				}
+				if( y > priv->bottomY){
+					y = priv->bottomY;
+				}
+			break;
+			case REL_WHEEL:
+				if (event->value < 0){
+                        		buttons = set_bit(buttons,4,1);
+                			delta = buttons ^ priv->wizardpenOldButtons;
+                			while (delta) {
+                    				id = ffs(delta);
+                    				delta &= ~(1 << (id-1));
+						if(rotate90)	
+                    				xf86PostButtonEvent(local->dev, 1, id, (buttons&(1<<(id-1))), 0, 3, report_y, screenmaxx - report_x,report_z);  
+						else
+                    				xf86PostButtonEvent(local->dev, 1, id, (buttons&(1<<(id-1))), 0, 3, report_x, report_y,report_z);  
+                			}
+        				priv->wizardpenOldButtons = buttons;
+                        		buttons = set_bit(buttons,4,0);
+                			delta = buttons ^ priv->wizardpenOldButtons;
+                			while (delta)
+                			{
+                    				id = ffs(delta);
+                    				delta &= ~(1 << (id-1));
+						if(rotate90)	
+                    				xf86PostButtonEvent(local->dev, 1, id, (buttons&(1<<(id-1))), 0, 3, report_y, screenmaxx - report_x,report_z);  
+						else
+                    				xf86PostButtonEvent(local->dev, 1, id, (buttons&(1<<(id-1))), 0, 3, report_x, report_y,report_z);  
+                			}
+				}
+				if (event->value > 0){
+                        		buttons = set_bit(buttons,3,1);
+                			delta = buttons ^ priv->wizardpenOldButtons;
+                			while (delta) {
+                    				id = ffs(delta);
+                    				delta &= ~(1 << (id-1));
+						if(rotate90)
+                    				xf86PostButtonEvent(local->dev, 1, id, (buttons&(1<<(id-1))), 0, 3, report_y, screenmaxx - report_x,report_z);  
+						else
+                    				xf86PostButtonEvent(local->dev, 1, id, (buttons&(1<<(id-1))), 0, 3, report_x, report_y,report_z);  
+                			}
+        				priv->wizardpenOldButtons = buttons;
+                        		buttons = set_bit(buttons,3,0);
+                			delta = buttons ^ priv->wizardpenOldButtons;
+                			while (delta)
+                			{
+                    				id = ffs(delta);
+                    				delta &= ~(1 << (id-1));
+						if(rotate90)
+                    				xf86PostButtonEvent(local->dev, 1, id, (buttons&(1<<(id-1))), 0, 3, report_y, screenmaxx - report_x,report_z);  
+						else
+                    				xf86PostButtonEvent(local->dev, 1, id, (buttons&(1<<(id-1))), 0, 3, report_x, report_y,report_z);  
+                			}
+				}
+			break;
+		}
+		break;
             case EV_ABS:
                 switch (event->code) {
                     case ABS_X:
-						x = event->value;
+			x = event->value;
+			if(debugyn)
+			xf86Msg(X_CONFIG, "ABS_X x is %d\n", x);
                     break;	
-					case ABS_Z:    
-						x = event->value;
+		    case ABS_Z:    
+			x = event->value;
+			if(debugyn)
+			xf86Msg(X_CONFIG, "ABS_Z x is %d\n", x);
                     break;
-					case ABS_RX:
+		    case ABS_RX:
                         y = event->value;
+			if(debugyn)
+			xf86Msg(X_CONFIG, "ABS_RX y is %d\n", y);
                     break;
                     case ABS_Y:
                         y = event->value;
+			if(debugyn)
+			xf86Msg(X_CONFIG, "ABS_Y y is %d\n", y);
                     break;
 
                     case ABS_PRESSURE:
+			/* mpa send button events if pressure 
+			   crosses topZ threshold */
+			oldz = z;
                     	z = event->value;
+			if ( z <= priv->topZ && oldz > priv->topZ){ 
+                        	buttons = set_bit(buttons,0,0);
+			if(debugyn)
+			xf86Msg(X_CONFIG, "setting PEN UP event\n");
+			}
+			if ( oldz <= priv->topZ && z > priv->topZ ){
+                        	buttons = set_bit(buttons,0,1);
+			if(debugyn)
+			        xf86Msg(X_CONFIG, "setting PEN DOWN event\n");
+			}
+			if(debugyn)
+			xf86Msg(X_CONFIG, "ABS_PRESSURE z is %d\n", z);
                     break;
 
                     case ABS_MISC:
@@ -798,49 +931,75 @@ USBReadInput (LocalDevicePtr local)
 
                 }
                 break; // EV_ABS 
-			case EV_REL:
-				switch(event->code){
-					case REL_X:
-						x = x + event->value*(priv->bottomX - priv->topX)/screenInfo.screens[0]->width;
-						break;
-					case REL_Y:
-						y = y + event->value*(priv->bottomY - priv->topY)/screenInfo.screens[0]->width;
-						break;
-					case REL_WHEEL:
-						if (event->value>0)
-							buttons = set_bit(buttons,3,1);
-						if (event->value<0)
-							buttons = set_bit(buttons,4,1);
-						break;
-				}
-					
+
             case EV_KEY:
                 switch (event->code) {
                     case BTN_TOOL_PEN:
                         prox = event->value;
+			if(debugyn)
+			xf86Msg(X_CONFIG, "BTN_TOOL_PEN prox is %d\n", prox);
                         break;
 
                     case BTN_LEFT:
-					case BTN_SIDE:
-                        buttons = set_bit(buttons,0,event->value);
+			buttons = set_bit(buttons,0,event->value);
+			if(debugyn)
+			xf86Msg(X_CONFIG, "NEW BTN_LEFT event is %d\n", event->value);
+	            case BTN_SIDE:
+                        /* mpa stop sending original pen up/down button
+			events in favor of button code above */
+			/*  buttons = set_bit(buttons,0,event->value);*/
+			if(debugyn)
+			xf86Msg(X_CONFIG, "ignored BTN_SIDE event is %d\n", event->value);
                         break;
 
-					case BTN_EXTRA:
-					case BTN_MIDDLE:
-                    	buttons = set_bit(buttons,1,event->value);
-                    	break;
+		     case BTN_EXTRA:
+			if(debugyn)
+			xf86Msg(X_CONFIG, "NEW BTN_EXTRA event is %d\n", event->value);
+		     case BTN_MIDDLE:
+                        buttons = set_bit(buttons,1,event->value);
+			if(debugyn)
+			xf86Msg(X_CONFIG, "BTN_MIDDLE event is %d\n", event->value);
+                        break;
 
-					case BTN_FORWARD:
-                    case BTN_RIGHT:
+		     case BTN_FORWARD:
+			if(debugyn)
+			xf86Msg(X_CONFIG, "BTN_FORWARD event is %d\n", event->value);
+                     case BTN_RIGHT:
                         buttons = set_bit(buttons,2,event->value);
+			if(debugyn)
+			xf86Msg(X_CONFIG, "BTN_RIGHT event is %d\n", event->value);
                         break;
                 }
                 break; // EV_KEY 
-				case EV_MSC:
-					 break;
-				default:
-                xf86Msg(X_ERROR, "%s: unknown event type/code %d/%d\n", local->name, event->type, event->code);
+	    case EV_MSC:
+		 break;
+            default:
+                xf86Msg(X_ERROR, "%s: unknown event type/code/value %d/%d/%d\n", local->name, event->type, event->code, event->value);
         } /* switch event->type */
+
+        /* mpa If pressure is below threshold, set pressure and reported
+		pressure to 0 */ 
+        if (z <= priv->topZ){
+	        report_z = 0;
+		/*z = 0;*/
+	}else if(z >= priv->bottomZ){
+		/*z = priv->bottomZ;*/
+		/*report_z = priv->bottomZ - priv->topZ;*/
+		report_z = 1023;
+	}else{  /* mpa Otherwise scale down by min pressure val */
+		report_z = z - priv->topZ;
+		rz = report_z;
+		report_z = 1023.0 * (rz / (priv->bottomZ - priv->topZ));
+	} 
+	/* mpa now scale back up so we again report a range of 0 to 1023 */ 
+        /*merged with above if/then/else
+	if(report_z >= (priv->bottomZ - priv->topZ)){
+		report_z = 1023;
+	}else if (report_z){
+		rz = report_z;
+		report_z = 1023.0 * (rz / (priv->bottomZ - priv->topZ));
+	}
+	*/
 
         /* Linux Kernel 2.6.x sends EV_SYN/SYN_REPORT as an event terminator,
          * whereas 2.4.x sends EV_ABS/ABS_MISC. We have to support both.
@@ -851,31 +1010,48 @@ USBReadInput (LocalDevicePtr local)
             continue;
         }
 	if(x>priv->topX && x<priv->bottomX)
-    	report_x = (x-priv->topX) * screenInfo.screens[0]->width / (priv->bottomX-priv->topX);
+    	/*report_x = (x-priv->topX) * screenInfo.screens[0]->width / (priv->bottomX-priv->topX);*/
+    	report_x = (x-priv->topX) * screenmaxx / (priv->bottomX-priv->topX);
 	else{
 		if(x<priv->topX)
 			report_x = 0;
 		else
-			report_x = screenInfo.screens[0]->width;
+			report_x = screenmaxx; /*screenInfo.screens[0]->width;*/
 	}
 	if(y>priv->topY && y<priv->bottomY)
-    	report_y = (y-priv->topY) * screenInfo.screens[0]->height / (priv->bottomY-priv->topY);
+    	/*report_y = (y-priv->topY) * screenInfo.screens[0]->height / (priv->bottomY-priv->topY);*/
+    	report_y = (y-priv->topY) * screenmaxy / (priv->bottomY-priv->topY);
 	else{
 		if(y<priv->topY)
 			report_y = 0;
 		else
-			report_y = screenInfo.screens[0]->height;
+			report_y = screenmaxy; /*screenInfo.screens[0]->height;*/
 	}
-		if (1)
+	if(rotate90){
+		int tempval;
+		if (report_y < 0)
+			report_y = 0;
+		if (report_x < 0)
+			report_x = 0;
+		tempval = report_x;
+		report_x = (screenmaxy - report_y);
+		if (report_x > 1278)
+			report_x = 1278;
+		report_y = tempval;
+	}
+	if (1)
         {
             if (!(priv->wizardpenOldProximity))
                 if (!is_core_pointer)
                 {
-                    xf86PostProximityEvent(local->dev, 1, 0, 3 , report_x, report_y, z);
+	            /* mpa send value of report_z rather than z */
+                    xf86PostProximityEvent(local->dev, 1, 0, 3 , 
+				report_x, report_y, report_z);
                 }
 
-
-            xf86PostMotionEvent(local->dev, 1, 0, 3, report_x, report_y, z);
+	    
+	    /* mpa send value of report_z rather than z */
+            xf86PostMotionEvent(local->dev, 1, 0, 3, report_x, report_y, report_z);
             if (priv->wizardpenOldButtons != buttons)
             {
                 int delta = buttons ^ priv->wizardpenOldButtons;
@@ -883,7 +1059,7 @@ USBReadInput (LocalDevicePtr local)
                 {
                     int id = ffs(delta);
                     delta &= ~(1 << (id-1));
-                    xf86PostButtonEvent(local->dev, 1, id, (buttons&(1<<(id-1))), 0, 3, report_x, report_y,z);
+                    xf86PostButtonEvent(local->dev, 1, id, (buttons&(1<<(id-1))), 0, 3, report_x, report_y,report_z);  /*mpa send report_z instead of z*/
                 }
             }
         }
@@ -892,7 +1068,7 @@ USBReadInput (LocalDevicePtr local)
             if (!is_core_pointer)
                 if (priv->wizardpenOldProximity)
                 {
-                    xf86PostProximityEvent(local->dev, 0, 0, 3, report_x,report_y,z);
+                    xf86PostProximityEvent(local->dev, 0, 0, 3, report_x,report_y,report_z);
                 }
             priv->wizardpenOldProximity = 0;
         }
@@ -923,7 +1099,8 @@ ConvertProc (LocalDevicePtr local, int first, int num,
 {
     WizardPenPrivatePtr priv = (WizardPenPrivatePtr)(local->private);
 	if(v0>priv->topX && v0<priv->bottomX)
-    	*x = (v0-priv->topX) * screenInfo.screens[0]->width / (priv->bottomX-priv->topX);
+    	/**x = (v0-priv->topX) * screenInfo.screens[0]->width / (priv->bottomX-priv->topX);*/
+    	*x = (v0-priv->topX) * screenmaxx / (priv->bottomX-priv->topX);
 	else{
 		if(v0<priv->topX)
 			*x = priv->topX;
@@ -931,7 +1108,8 @@ ConvertProc (LocalDevicePtr local, int first, int num,
 			*x = priv->bottomX;
 	}
 	if(v1>priv->topY && v1<priv->bottomY)
-    	*y = (v1-priv->topY) * screenInfo.screens[0]->width / (priv->bottomY-priv->topY);
+    	/**y = (v1-priv->topY) * screenInfo.screens[0]->width / (priv->bottomY-priv->topY);*/
+    	*y = (v1-priv->topY) * screenmaxy / (priv->bottomY-priv->topY);
 	else{
 		if(v1<priv->topY)
 			*y = priv->topY;
@@ -949,8 +1127,10 @@ ReverseConvertProc (LocalDevicePtr local,
 {
     WizardPenPrivatePtr priv = (WizardPenPrivatePtr)(local->private);
 
-    valuators[0] = (x * (priv->bottomX-priv->topX) / screenInfo.screens[0]->width) + priv->topX;
-    valuators[1] = (y * (priv->bottomY-priv->topY) / screenInfo.screens[0]->height) + priv->topY;
+    valuators[0] = (x * (priv->bottomX-priv->topX) / screenmaxx) + priv->topX;
+    valuators[1] = (y * (priv->bottomY-priv->topY) / screenmaxy) + priv->topY;
+    /*valuators[0] = (x * (priv->bottomX-priv->topX) / screenInfo.screens[0]->width) + priv->topX;
+    valuators[1] = (y * (priv->bottomY-priv->topY) / screenInfo.screens[0]->height) + priv->topY;*/
 
     return TRUE;
 }

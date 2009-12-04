@@ -1,0 +1,108 @@
+README - CONFIGURATION
+======================
+Primary author (documentation): Felix Leong (seh_hui at yahoo.com)
+
+This document describes how to configure the Wizardpen driver.
+
+**TODO** Proofreading and formatting polish
+
+CONFIGURING THE DRIVER
+----------------------
+** RECOMMENDED CONFIGURATION STEPS FOR XORG 7.3 **
+
+To fully exploit HAL-based hotplugging provided in Xorg 7.3, the following
+steps should be observed:
+    1. Connect your Wizardpen tablet
+    2. ** IMPORTANT ** Find out the name of your tablet by executing
+        `grep -i name /proc/bus/input/devices`
+    3. Create a new file /etc/hal/fdi/policy/99-x11-wizardpen.fdi
+    4. Edit the fdi file and paste the following template:
+            <?xml version="1.0" encoding="ISO-8859-1" ?>
+            <deviceinfo version="0.2">
+            <device>
+                <!-- This MUST match with the name of your tablet obtained -->
+                <!-- in Step 2 specified previously                        -->
+                <match key="info.product" contains="NAME OF YOUR TABLET">
+                <merge key="input.x11_driver" type="string">wizardpen</merge>
+                <merge key="input.x11_options.SendCoreEvents" type="string">true</merge>
+
+                <!-- Modify these configuration accordingly -->
+                <!-- See CONFIGURATION OPTIONS section for the full-set of -->
+                <!-- configurable options                                  -->
+                <merge key="input.x11_options.TopX" type="string">5619</merge>
+                <merge key="input.x11_options.TopY" type="string">6554</merge>
+                <merge key="input.x11_options.BottomX" type="string">29405</merge>
+                <merge key="input.x11_options.BottomY" type="string">29671</merge>
+                <merge key="input.x11_options.MaxX" type="string">29405</merge>
+                <merge key="input.x11_options.MaxY" type="string">29671</merge>
+                </match>
+            </device>
+            </deviceinfo> 
+    5. Restart your computer
+
+CONFIGURATION OPTIONS:
+----------------------
+Note: The following tries to follow the same description convention used in
+      Xorg.conf manpage
+
+Option "TopX" "string"
+    Specifies the x-coordinate of the top-left corner of the tablet.
+    This value can be obtained using the `wizardpen-calibrate` program
+    included with the driver
+
+Option "TopY" "string"
+    Specifies the y-coordinate of the top-left corner of the tablet.
+    This value can be obtained using the `wizardpen-calibrate` program
+    included with the driver
+
+Option "BottomX" "string"
+    Specifies the x-coordinate of the bottom-right corner of the tablet.
+    This value can be obtained using the `wizardpen-calibrate` program
+    included with the driver
+
+Option "BottomY" "string"
+    Specifies the y-coordinate of the bottom-right corner of the tablet.
+    This value can be obtained using the `wizardpen-calibrate` program
+    included with the driver
+
+Option "TopZ" "string"
+    Specifies the minimum pressure threshold. When the pressure reaches over
+    this level, the driver will:
+        1. Send a left-click event
+        2. Send pressure values greater than one (for graphical applications)
+
+    This is VERY USEFUL if your pen tip gets "stuck" and continues to send
+    non-zero values when you are not pressing it. Set this value ABOVE the
+    stuck value. Find stuck value (if any) by executing `xinput test Tablet`
+
+    Accepts values between 0 and 1024.
+
+Option "BottomZ" "string"
+    Specifies the maximum pressure value. When the driver receives presure
+    value higher than this value, it will a pressure value of 1024 - which
+    translates to maximum pressure in graphics applications
+
+Option "Rotate90" "boolean"
+    Rotate tablet 90 degrees clockwise
+
+Option "ScreenX" "width"
+    Tells the driver the width of the screen. If you want to know what the
+    driver thinks your screen dimesions are, execute `xinput list Tablet`.
+
+Option "ScreenY" "height"
+    Tells the driver the height of the screen. If you want to know what the
+    driver thinks your screen dimesions are, execute `xinput list Tablet`.
+
+Option "debugyn" "boolean"
+    Generates event info into Xorg log file (Xorg.0.log).
+    ** WARNING ** Don't switch the option on unless you need to as the
+    debug information is very verbose.
+
+Option "MouseSpeed" "multiplier"
+    (Relative Mode only?) The scaling factor multiplied by the relative mouse
+    movement events to calculate absolute x/y movements. Defaults to "30" if
+    not specified.
+
+Option "MouseAccel" "boolean"
+    Turns mouse acceleration on or off.
+

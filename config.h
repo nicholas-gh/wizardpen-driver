@@ -37,7 +37,7 @@
 #define LINUX_INPUT 1
 
 /* Using sysfs to probe devices */
-#define LINUX_SYSFS 1
+/* #undef LINUX_SYSFS */
 
 /* Name of package */
 #define PACKAGE "xf86-input-wizardpen"

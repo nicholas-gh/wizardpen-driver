@@ -1,0 +1,29 @@
+INSTALLATION STEPS
+==================
+Primary author: Felix Leong (seh_hui at yahoo dot com)
+Original source: http://digitalbluewave.blogspot.com/2008/10/genius-wizardpen-with-intrepid-ibex.html
+
+** BUILDING ** 
+
+[ UBUNTU ]
+----------
+00. Unpack the source package
+
+01. Retrieve the needed development packages: 
+        sudo aptitude install xutils libx11-dev libxext-dev build-essential \
+            xautomation xinput xserver-xorg-dev
+
+02. Change directory to where you unpacked the source code
+
+03. Compile and install the driver:
+        ./configure --with-xorg-module-dir=/usr/lib/xorg/modules
+        make && sudo make install
+
+04. Verify that the driver is installed correctly (Check for wizardpen_drv.la
+    and wizardpen_drv.so):
+        ls /usr/lib/xorg/modules/input/wizardpen_drv.*
+
+[ TODO ]
+--------
+Installation steps for other Linux distros
+
